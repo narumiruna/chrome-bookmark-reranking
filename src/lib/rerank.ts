@@ -6,9 +6,9 @@ import {
   type SystemOneResult,
   TypeSafeClient,
 } from "@typesafe-ai/sdk"
-import type { LocalSearchResult } from "./bookmarks"
+import type { BookmarkItem } from "./bookmarks"
 
-export interface SemanticSearchResult extends LocalSearchResult {
+export interface SemanticSearchResult extends BookmarkItem {
   relevance: number
 }
 
@@ -38,7 +38,7 @@ export function createRerankClient(apiKey: string): RerankClient {
 }
 
 export async function rerankBookmarks(
-  candidates: LocalSearchResult[],
+  candidates: BookmarkItem[],
   query: string,
   client: RerankClient,
   signal?: AbortSignal,
@@ -80,7 +80,7 @@ export async function rerankBookmarks(
       ...candidate,
       relevance: response.answers[`candidate_${index}`].noul,
     }))
-    .sort((left, right) => right.relevance - left.relevance || right.localScore - left.localScore)
+    .sort((left, right) => right.relevance - left.relevance)
 
   return {
     results,

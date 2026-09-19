@@ -1,41 +1,63 @@
-import { flattenBookmarkTree, shortlistBookmarks } from "./bookmarks"
-import { createRerankClient, rerankBookmarks, type SemanticSearchResult } from "./rerank"
+import { flattenBookmarkTree } from "./bookmarks"
+import {
+  createRerankClient,
+  type RerankClient,
+  rerankBookmarks,
+  type SemanticSearchResult,
+} from "./rerank"
 
-export const SHORTLIST_SIZE = 18
 export const VISIBLE_RESULT_COUNT = 10
+
+export interface SearchDependencies {
+  getBookmarkTree: () => Promise<chrome.bookmarks.BookmarkTreeNode[]>
+  createClient: (apiKey: string) => RerankClient
+}
+
+const DEFAULT_DEPENDENCIES: SearchDependencies = {
+  getBookmarkTree: () => chrome.bookmarks.getTree(),
+  createClient: createRerankClient,
+}
 
 export interface SearchResponse {
   results: SemanticSearchResult[]
   bookmarkCount: number
-  usedAi: boolean
   model?: string
-  inputTokens?: number
-  outputTokens?: number
+  inputTokens: number
+  outputTokens: number
 }
 
 export async function searchBookmarks(
   query: string,
   apiKey: string,
   signal?: AbortSignal,
+  dependencies = DEFAULT_DEPENDENCIES,
 ): Promise<SearchResponse> {
-  const tree = await chrome.bookmarks.getTree()
-  const bookmarks = flattenBookmarkTree(tree)
-  const shortlist = shortlistBookmarks(bookmarks, query, SHORTLIST_SIZE)
+  if (!apiKey.trim()) {
+    throw new Error("A TypeSafe API key is required")
+  }
 
-  if (!apiKey) {
+  const tree = await dependencies.getBookmarkTree()
+  const bookmarks = flattenBookmarkTree(tree)
+
+  if (bookmarks.length === 0) {
     return {
-      results: shortlist.map((bookmark) => ({ ...bookmark, relevance: 0 })),
-      bookmarkCount: bookmarks.length,
-      usedAi: false,
+      results: [],
+      bookmarkCount: 0,
+      inputTokens: 0,
+      outputTokens: 0,
     }
   }
 
-  const reranked = await rerankBookmarks(shortlist, query, createRerankClient(apiKey), signal)
+  const reranked = await rerankBookmarks(
+    bookmarks,
+    query,
+    dependencies.createClient(apiKey),
+    signal,
+  )
 
   return {
     results: reranked.results,
     bookmarkCount: bookmarks.length,
-    usedAi: true,
     model: reranked.model,
     inputTokens: reranked.inputTokens,
     outputTokens: reranked.outputTokens,

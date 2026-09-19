@@ -12,20 +12,20 @@ export function describeSearchError(error: unknown): string {
   }
 
   if (error instanceof RateLimitError) {
-    return "TypeSafe is rate limited right now. Local matches are shown instead."
+    return "TypeSafe is rate limited right now. Wait a moment and try again."
   }
 
   if (error instanceof APIConnectionError) {
-    return "Could not reach TypeSafe. Check your connection; local matches are shown instead."
+    return "Could not reach TypeSafe. Check your connection and try again."
   }
 
   if (error instanceof APIError) {
-    return `TypeSafe returned an error (${error.status}). Local matches are shown instead.`
+    return `TypeSafe returned an error (${error.status}). Try again later.`
   }
 
   if (error instanceof Error && error.name === "AbortError") {
     return "Search cancelled."
   }
 
-  return "AI ranking failed. Local matches are shown instead."
+  return "Jev search failed. Check your bookmarks permission and try again."
 }

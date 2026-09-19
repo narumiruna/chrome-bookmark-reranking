@@ -1,6 +1,6 @@
 # Bookmark Compass
 
-A Chrome extension built with [Extension.js](https://extension.js.org/) that finds bookmarks from a natural-language prompt. It retrieves a small local shortlist, then uses [`@typesafe-ai/sdk`](https://www.npmjs.com/package/@typesafe-ai/sdk) to rerank each bookmark by semantic relevance.
+A Chrome extension built with [Extension.js](https://extension.js.org/) that finds bookmarks from a natural-language prompt. It sends all bookmark metadata to Jev through [`@typesafe-ai/sdk`](https://www.npmjs.com/package/@typesafe-ai/sdk) and ranks every bookmark by semantic relevance.
 
 The popup UI uses Radix Themes, Colors, and Icons.
 
@@ -9,13 +9,13 @@ The popup UI uses Radix Themes, Colors, and Icons.
 ```mermaid
 flowchart LR
   A[Search prompt] --> B[Read Chrome bookmarks]
-  B --> C[Local 18-item shortlist]
-  C --> D[TypeSafe Noul relevance judgments]
-  D --> E[Sorted top 10]
+  B --> C[Send all bookmark metadata to Jev]
+  C --> D[One Noul judgment per bookmark]
+  D --> E[Sort and show top 10]
   E --> F[Open selected bookmark]
 ```
 
-Without an API key, Bookmark Compass still displays locally ranked results. With a key, it submits the prompt plus the shortlisted bookmark titles, URLs, and folder paths to TypeSafe and sorts by returned Noul probabilities.
+A TypeSafe API key is required to search. Each search makes one System One request whose state contains the complete prompt and every bookmark's title, URL, and folder path. Jev evaluates one comparable Noul relevance judgment per bookmark, and the extension sorts the returned probabilities.
 
 ## Setup
 
@@ -48,13 +48,15 @@ The key is stored in `chrome.storage.local`; it is not synced to the user's Goog
 
 Browser extensions cannot protect credentials as strongly as a server. Use a dedicated, revocable TypeSafe key and remove it when no longer needed. Do not publish a key in source code or bundle it at build time.
 
+Every search sends all bookmark titles, URLs, and folder paths to TypeSafe. Large bookmark collections also increase request size, latency, and API usage.
+
 ## Permissions
 
 | Permission | Purpose |
 | --- | --- |
 | `bookmarks` | Read bookmark titles, URLs, folders, and dates for search. |
 | `storage` | Store the user-provided API key locally. |
-| `https://api.typesafe.ai/*` | Send shortlisted candidates to TypeSafe for reranking. |
+| `https://api.typesafe.ai/*` | Send all bookmark metadata to Jev for semantic ranking. |
 
 ## Commands
 
@@ -63,6 +65,7 @@ npm run check      # Biome
 npm test           # Vitest
 npm run typecheck  # TypeScript
 npm run build      # Production Chrome extension
+npm run pack       # Chrome Web Store ZIP
 npm run ci         # All checks above
 ```
 
@@ -70,7 +73,7 @@ npm run ci         # All checks above
 
 - `src/manifest.json` — Manifest V3 permissions and popup entry.
 - `src/popup/` — React and Radix popup UI.
-- `src/lib/bookmarks.ts` — bookmark flattening and local retrieval.
-- `src/lib/rerank.ts` — TypeSafe Noul questions and semantic sort.
+- `src/lib/bookmarks.ts` — flatten the complete Chrome bookmark tree.
+- `src/lib/rerank.ts` — Jev Noul questions and semantic sort.
 - `src/lib/storage.ts` — local API-key persistence.
-- `tests/` — local retrieval and reranking unit tests.
+- `tests/` — bookmark extraction and Jev reranking unit tests.

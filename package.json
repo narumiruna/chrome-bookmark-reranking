@@ -14,9 +14,11 @@
     "pack": "extension build --browser chrome --zip",
     "typecheck": "tsc --noEmit",
     "check": "biome ci .",
+    "check:version": "node scripts/sync-manifest-version.mjs --check",
     "test": "vitest run",
-    "ci": "npm run check && npm test && npm run typecheck && npm run build",
-    "prepare": "husky"
+    "ci": "npm run check && npm run check:version && npm test && npm run typecheck && npm run build",
+    "prepare": "husky",
+    "version": "node scripts/sync-manifest-version.mjs && git add src/manifest.json"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.13",

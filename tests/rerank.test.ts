@@ -9,7 +9,6 @@ const candidates = [
     url: "https://react.dev/reference",
     path: "Engineering",
     dateAdded: 20,
-    localScore: 100,
   },
   {
     id: "b",
@@ -17,7 +16,6 @@ const candidates = [
     url: "https://example.com/forms",
     path: "Frontend",
     dateAdded: 10,
-    localScore: 60,
   },
 ]
 
@@ -42,6 +40,7 @@ describe("rerankBookmarks", () => {
 
     const request = systemOne.mock.calls[0][0]
     expect(request.state.searchIntent).toBe("help me build a less fragile form")
+    expect(request.state.candidates).toHaveLength(candidates.length)
     expect(Object.keys(request.questions)).toEqual(["candidate_0", "candidate_1"])
     expect(request.questions.candidate_0.type).toBe("noul")
   })

@@ -39,7 +39,6 @@ import { getApiKey, saveApiKey } from "../lib/storage"
 
 interface SearchMeta {
   bookmarkCount: number
-  usedAi: boolean
   model?: string
 }
 
@@ -66,23 +65,39 @@ function ApiKeyDialog({
   const [draft, setDraft] = useState(savedKey)
   const [revealed, setRevealed] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState("")
 
   useEffect(() => {
-    if (open) setDraft(savedKey)
+    if (open) {
+      setDraft(savedKey)
+      setSaveError("")
+    }
   }, [open, savedKey])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setSaving(true)
-    await onSave(draft)
-    setSaving(false)
+    setSaveError("")
+    try {
+      await onSave(draft)
+    } catch {
+      setSaveError("Chrome could not save the API key. Try again.")
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function handleRemove() {
     setSaving(true)
-    await onSave("")
-    setDraft("")
-    setSaving(false)
+    setSaveError("")
+    try {
+      await onSave("")
+      setDraft("")
+    } catch {
+      setSaveError("Chrome could not remove the API key. Try again.")
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -145,10 +160,19 @@ function ApiKeyDialog({
                 <InfoCircledIcon />
               </Callout.Icon>
               <Callout.Text>
-                Stored only in <code>chrome.storage.local</code>. A browser extension cannot isolate
-                a secret as strongly as a server, so use a dedicated, revocable key.
+                Stored only in <code>chrome.storage.local</code>. Searches send every bookmark
+                title, URL, and folder path to TypeSafe, so use a dedicated, revocable key.
               </Callout.Text>
             </Callout.Root>
+
+            {saveError ? (
+              <Callout.Root color="red" size="1" variant="surface">
+                <Callout.Icon>
+                  <InfoCircledIcon />
+                </Callout.Icon>
+                <Callout.Text>{saveError}</Callout.Text>
+              </Callout.Root>
+            ) : null}
 
             <Flex justify={savedKey ? "between" : "end"} align="center" mt="2">
               {savedKey ? (
@@ -177,12 +201,10 @@ function ApiKeyDialog({
 function ResultCard({
   result,
   position,
-  usedAi,
   onOpen,
 }: {
   result: SemanticSearchResult
   position: number
-  usedAi: boolean
   onOpen: (url: string) => void
 }) {
   return (
@@ -197,15 +219,9 @@ function ResultCard({
         {result.path ? <span className="result-path">{result.path}</span> : null}
       </span>
       <span className="result-aside">
-        {usedAi ? (
-          <Badge color="indigo" variant="soft" radius="full">
-            {Math.round(result.relevance * 100)}%
-          </Badge>
-        ) : (
-          <Badge color="gray" variant="soft" radius="full">
-            Local
-          </Badge>
-        )}
+        <Badge color="indigo" variant="soft" radius="full">
+          {Math.round(result.relevance * 100)}%
+        </Badge>
         <ExternalLinkIcon className="open-icon" />
       </span>
     </button>
@@ -219,7 +235,7 @@ export function App() {
   const [loading, setLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [results, setResults] = useState<SemanticSearchResult[]>([])
-  const [meta, setMeta] = useState<SearchMeta>({ bookmarkCount: 0, usedAi: false })
+  const [meta, setMeta] = useState<SearchMeta>({ bookmarkCount: 0 })
   const [notice, setNotice] = useState("")
   const abortController = useRef<AbortController | null>(null)
 
@@ -240,6 +256,11 @@ export function App() {
     event.preventDefault()
     const intent = query.trim()
     if (!intent) return
+    if (!apiKey) {
+      setNotice("Add a TypeSafe API key before searching.")
+      setSettingsOpen(true)
+      return
+    }
 
     abortController.current?.abort()
     const controller = new AbortController()
@@ -252,28 +273,11 @@ export function App() {
       const response = await searchBookmarks(intent, apiKey, controller.signal)
       if (controller.signal.aborted) return
       setResults(response.results.slice(0, VISIBLE_RESULT_COUNT))
-      setMeta({
-        bookmarkCount: response.bookmarkCount,
-        usedAi: response.usedAi,
-        model: response.model,
-      })
+      setMeta({ bookmarkCount: response.bookmarkCount, model: response.model })
     } catch (error) {
       if (controller.signal.aborted) return
-
-      if (apiKey) {
-        try {
-          const fallback = await searchBookmarks(intent, "", controller.signal)
-          setResults(fallback.results.slice(0, VISIBLE_RESULT_COUNT))
-          setMeta({ bookmarkCount: fallback.bookmarkCount, usedAi: false })
-          setNotice(describeSearchError(error))
-        } catch {
-          setResults([])
-          setNotice("Chrome could not read your bookmarks. Check the extension permissions.")
-        }
-      } else {
-        setResults([])
-        setNotice("Chrome could not read your bookmarks. Check the extension permissions.")
-      }
+      setResults([])
+      setNotice(describeSearchError(error))
     } finally {
       if (!controller.signal.aborted) setLoading(false)
     }
@@ -322,7 +326,7 @@ export function App() {
             <Flex align="center" justify="between" mb="3">
               <Badge color={apiKey ? "indigo" : "gray"} variant="soft" radius="full">
                 {apiKey ? <MagicWandIcon /> : <LockClosedIcon />}
-                {apiKey ? "AI ranking on" : "Local search"}
+                {apiKey ? "Jev search ready" : "API key required"}
               </Badge>
               {!apiKey ? (
                 <Button size="1" variant="ghost" onClick={() => setSettingsOpen(true)}>
@@ -384,7 +388,7 @@ export function App() {
                 </span>
                 <Text weight="medium">Reading the compass…</Text>
                 <Text size="1" color="gray">
-                  Comparing your best local matches
+                  Jev is judging every bookmark
                 </Text>
               </Flex>
             ) : results.length > 0 ? (
@@ -394,7 +398,7 @@ export function App() {
                     BEST MATCHES
                   </Text>
                   <Text size="1" color="gray">
-                    {meta.usedAi ? `Ranked by ${meta.model ?? "TypeSafe"}` : "Keyword ranked"}
+                    {`Ranked by ${meta.model ?? "Jev"}`}
                   </Text>
                 </Flex>
                 <ScrollArea className="results-scroll" type="auto" scrollbars="vertical">
@@ -404,7 +408,6 @@ export function App() {
                         key={result.id}
                         result={result}
                         position={index + 1}
-                        usedAi={meta.usedAi}
                         onOpen={(url) => void openBookmark(url)}
                       />
                     ))}
@@ -439,12 +442,12 @@ export function App() {
                     Find the page you meant
                   </Heading>
                   <Text as="p" size="2" color="gray" align="center" mt="2">
-                    Your prompt becomes a relevance judgment across a private, local shortlist.
+                    Jev judges every bookmark against your prompt in one request.
                   </Text>
                 </Box>
                 <Flex className="privacy-chip" align="center" gap="2">
                   <LockClosedIcon />
-                  <Text size="1">Only shortlisted bookmark details are sent for ranking</Text>
+                  <Text size="1">All bookmark titles, URLs, and folders are sent to TypeSafe</Text>
                 </Flex>
               </Flex>
             )}
