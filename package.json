@@ -21,7 +21,7 @@
     "version": "node scripts/sync-manifest-version.mjs && git add src/manifest.json"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.13",
+    "@biomejs/biome": "^2.5.14",
     "@types/chrome": "^0.3.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
