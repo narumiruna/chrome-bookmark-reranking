@@ -11,6 +11,7 @@
     "dev": "extension dev",
     "start": "extension start",
     "build": "extension build --browser chrome",
+    "pack": "extension build --browser chrome --zip",
     "typecheck": "tsc --noEmit",
     "check": "biome ci .",
     "test": "vitest run",
