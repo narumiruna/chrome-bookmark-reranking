@@ -443,7 +443,7 @@ export function App() {
                     Find the page you meant
                   </Heading>
                   <Text as="p" size="2" color="gray" align="center" mt="2">
-                    Jev judges every bookmark against your prompt in one request.
+                    Jev judges every bookmark against your prompt in bounded requests.
                   </Text>
                 </Box>
                 <Flex className="privacy-chip" align="center" gap="2">

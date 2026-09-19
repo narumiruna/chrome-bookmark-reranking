@@ -15,7 +15,7 @@ flowchart LR
   E --> F[Open selected bookmark]
 ```
 
-A TypeSafe API key is required to search. Each search makes one System One request whose state contains the complete prompt and every bookmark's title, URL, and folder path. Jev evaluates one comparable Noul relevance judgment per bookmark, and the extension sorts the returned probabilities.
+A TypeSafe API key is required to search. Each search sends every bookmark's title, URL, and folder path to Jev in bounded System One request batches. Jev evaluates one comparable Noul relevance judgment per bookmark, and the extension combines and sorts the returned probabilities.
 
 ## Setup
 

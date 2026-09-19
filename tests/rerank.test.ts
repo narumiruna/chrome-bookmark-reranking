@@ -1,6 +1,11 @@
 import type { SystemOneResult } from "@typesafe-ai/sdk"
 import { describe, expect, test, vi } from "vitest"
-import { type RerankClient, rerankBookmarks } from "../src/lib/rerank"
+import {
+  MAX_BOOKMARKS_PER_REQUEST,
+  MAX_REQUEST_STATE_BYTES,
+  type RerankClient,
+  rerankBookmarks,
+} from "../src/lib/rerank"
 
 const candidates = [
   {
@@ -43,6 +48,52 @@ describe("rerankBookmarks", () => {
     expect(request.state.candidates).toHaveLength(candidates.length)
     expect(Object.keys(request.questions)).toEqual(["candidate_0", "candidate_1"])
     expect(request.questions.candidate_0.type).toBe("noul")
+  })
+
+  test("batches every bookmark into bounded Jev requests", async () => {
+    const manyCandidates = Array.from({ length: MAX_BOOKMARKS_PER_REQUEST + 1 }, (_, index) => ({
+      id: String(index),
+      title: `Bookmark ${index}`,
+      url: `https://example.com/${index}/${"x".repeat(5_000)}`,
+      path: "Reference",
+      dateAdded: index,
+    }))
+    const systemOne = vi.fn().mockImplementation((request) => {
+      const state = request.state as { candidates: Array<{ title: string }> }
+      return Promise.resolve({
+        model: "jev-test",
+        answers: Object.fromEntries(
+          state.candidates.map((candidate, index) => [
+            `candidate_${index}`,
+            {
+              type: "noul",
+              noul: Number(candidate.title.split(" ")[1]) / manyCandidates.length,
+            },
+          ]),
+        ),
+        usage: { input_tokens: 100, output_tokens: state.candidates.length },
+      })
+    })
+    const response = await rerankBookmarks(manyCandidates, "reference material", {
+      systemOne,
+    } as RerankClient)
+
+    expect(systemOne.mock.calls.length).toBeGreaterThan(1)
+    const sentCandidates = systemOne.mock.calls.flatMap(([request]) => {
+      const state = request.state as { candidates: Array<{ title: string }> }
+      expect(state.candidates.length).toBeLessThanOrEqual(MAX_BOOKMARKS_PER_REQUEST)
+      expect(
+        new TextEncoder().encode(JSON.stringify(request.state)).byteLength,
+      ).toBeLessThanOrEqual(MAX_REQUEST_STATE_BYTES)
+      return state.candidates
+    })
+    expect(sentCandidates.map((candidate) => candidate.title)).toEqual(
+      manyCandidates.map((candidate) => candidate.title),
+    )
+    expect(response.results).toHaveLength(manyCandidates.length)
+    expect(response.results[0].id).toBe(String(manyCandidates.length - 1))
+    expect(response.inputTokens).toBe(systemOne.mock.calls.length * 100)
+    expect(response.outputTokens).toBe(manyCandidates.length)
   })
 
   test("does not call TypeSafe when there are no candidates", async () => {
