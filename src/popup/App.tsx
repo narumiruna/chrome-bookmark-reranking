@@ -68,6 +68,7 @@ function ApiKeyDialog({
   const [saveError, setSaveError] = useState("")
 
   useEffect(() => {
+    setRevealed(false)
     if (open) {
       setDraft(savedKey)
       setSaveError("")
